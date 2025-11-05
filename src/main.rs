@@ -1,6 +1,6 @@
-use std::f32;
+use std::{collections::HashMap, f32, hash::Hash};
 
-use macroquad::{prelude::*, rand::gen_range};
+use macroquad::{prelude::*};
 
 struct SimulationData {
     roads: Roads,
@@ -33,12 +33,24 @@ struct RoadVisualKeypoint {
 
 const SPEED: f32 = 1.;
 const OPTIMAL_ACCELERATION: f32 = 0.5;
+const SEEING_DISTANCE: f32 = 3.;
 
 struct Car {
-    road_segment: usize,
-    progression: f32,
+    position: RoadPoint,
     speed: f32,
     target_speed: f32,
+    road_information: RoadInformation,
+}
+
+#[derive(PartialEq)]
+struct RoadPoint {
+    road_segment: usize,
+    position: f32,
+}
+
+struct RoadInformation {
+    current_speed_limit: f32,
+    incoming_speed_limits: HashMap<RoadPoint, f32>,
 }
 
 const MARGINS: f32 = 10.;
@@ -107,6 +119,7 @@ impl RoadSegment {
             signs: vec![
                 Sign {sign_type: SignType::SpeedLimit, value: 0.5, position: 0.4},
                 Sign {sign_type: SignType::SpeedLimit, value: 0.1, position: 1.4},
+                Sign { sign_type: SignType::EndSpeedLimit, value: 0., position: 1.6 },
             ],
             length,
             visual_keypoints,
@@ -114,13 +127,27 @@ impl RoadSegment {
     }
 }
 
+impl RoadPoint {
+    fn new(road_segment: usize, position: f32) -> Self {
+        Self { road_segment, position }
+    }
+}
+
+impl Hash for RoadPoint {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.road_segment.hash(state);
+        self.position.to_bits().hash(state);
+    }
+}
+
+impl Eq for RoadPoint {}
+
 impl Car {
     fn new(road_segment: usize, progression: f32) -> Self {
-        Self { road_segment, progression, speed: SPEED, target_speed: SPEED }
+        Self { position: RoadPoint { road_segment, position: progression }, speed: SPEED, target_speed: SPEED, road_information: RoadInformation { current_speed_limit: SPEED, incoming_speed_limits: HashMap::new() } }
     }
     fn step(&mut self, step_size: f32, roads: &Roads) {
-        let road_segment = &roads.segments[self.road_segment];
-        let previous_progression: f32 = self.progression;
+        let road_segment = &roads.segments[self.position.road_segment];
         if self.speed > self.target_speed {
             self.speed -= OPTIMAL_ACCELERATION * step_size;
             if self.speed < self.target_speed {
@@ -132,34 +159,47 @@ impl Car {
                 self.speed = self.target_speed;
             }
         }
-        self.progression += self.speed * step_size;
-        if self.progression > road_segment.length {
-            self.progression = 0.;
+        self.position.position += self.speed * step_size;
+        if self.position.position > road_segment.length {
+            self.position.position = 0.;
         }
         for sign in &road_segment.signs {
-            if previous_progression > sign.position {
-                continue
+            let sign_position = RoadPoint::new(self.position.road_segment, sign.position);
+            if self.position.position < sign.position - SEEING_DISTANCE || self.position.position > sign.position || self.road_information.incoming_speed_limits.contains_key(&sign_position) {
+                // Skip the sign if we are too far, we already know about it, or we passed it already.
+                continue;
             }
             match sign.sign_type {
                 SignType::SpeedLimit => {
-                    if sign.value < self.speed {
-                        // Need to slow down, look at how much distance it will take
-                        let slowing_distance = (self.speed.powi(2) - sign.value.powi(2)) / (2. * OPTIMAL_ACCELERATION);
-                        if self.progression + slowing_distance > sign.position {
-                            self.target_speed = sign.value;
-                        }
-                    } else if self.progression > sign.position {
-                        self.target_speed = sign.value;
-                    }
+                    self.road_information.incoming_speed_limits.insert(sign_position, sign.value);
                 },
                 SignType::EndSpeedLimit => {
-                    print!("Problem! EndSpeedLimit not known");
+                    self.road_information.incoming_speed_limits.insert(sign_position, SPEED);
                 }
             }
-            if previous_progression < sign.position && self.progression > sign.position {
-                
+        }
+        self.target_speed = self.road_information.current_speed_limit;
+        // println!("{}", self.road_information.incoming_speed_limits.len());
+        for (speed_limit_position, speed) in self.road_information.incoming_speed_limits.iter() {
+            // Update the current speed limit information
+            if speed_limit_position.position < self.position.position {
+                self.road_information.current_speed_limit = *speed;
+                self.target_speed = self.target_speed.min(self.road_information.current_speed_limit);
+            }
+            // Look at how much distance it would take to accelerate / decelerate
+            let acceleration_distance = (self.speed.powi(2) - speed.powi(2)).abs() / (2. * OPTIMAL_ACCELERATION);
+            if acceleration_distance > (speed_limit_position.position - self.position.position) {
+                self.target_speed = self.target_speed.min(*speed);
             }
         }
+        // Remove speed limits not used anymore
+        self.road_information.incoming_speed_limits.retain(|road_point, _speed| { road_point.position > self.position.position });
+        // println!("{}", self.road_information.incoming_speed_limits.len());
+        
+    }
+
+    fn _request_target_speed(&mut self, target_speed: f32) {
+        self.target_speed = self.target_speed.min(target_speed).min(self.road_information.current_speed_limit);
     }
 }
 
@@ -190,7 +230,7 @@ impl Window {
     }
     fn draw_cars(&self, cars: &Vec<Car>, roads: &Roads) {
         for car in cars {
-            let (x, y) = roads.get_position_xy(car.road_segment, car.progression);
+            let (x, y) = roads.get_position_xy(car.position.road_segment, car.position.position);
             draw_rectangle(self.x_to_pixel(x) - 5., self.y_to_pixel(y) - 5., 10., 10., BLUE);
         }
         draw_text(&("Speed = ".to_string() + &cars[0].speed.to_string()), 5., 100., 30., WHITE);
