@@ -11,7 +11,7 @@ struct SimulationData {
 #[macroquad::main("MyGame")]
 async fn main() {
     let mut sd: SimulationData = SimulationData { roads: road::Roads::new(), cars: Vec::new() };
-    let window = gui::Window::new().await;
+    let mut window = gui::Window::new().await;
     sd.cars.push(agent::car::Car::new(road::RoadPoint::new(0, 0.)));
     // for _ in 0..10 {
     //     let road_idx: usize = gen_range(0, sd.roads.segments.len());
@@ -29,6 +29,7 @@ async fn main() {
         for (i, car) in sd.cars.iter().enumerate() {
             car.render(&window, &sd.roads, i == 0)
         }
+        window.update();
         macroquad::time::draw_fps();
         macroquad::window::next_frame().await;
     }

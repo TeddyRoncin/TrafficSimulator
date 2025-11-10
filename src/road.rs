@@ -112,11 +112,11 @@ impl Roads {
     }
 
     fn init_roads(&mut self) {
-        self.nodes.push(RoadNode { x: 1. / 3. + 0.5, y: 0.5 });
+        self.nodes.push(RoadNode { x: 1., y: 0. });
         let mut visual_keypoints: Vec<RoadVisualKeypoint> = Vec::new();
         for i in 1..100 {
             let angle = i as f32 * 2. * f32::consts::PI / 100.;
-            visual_keypoints.push(RoadVisualKeypoint { position: i as f32 / 100., x: f32::cos(angle) / 3. + 0.5, y: f32::sin(angle) / 3. + 0.5 });
+            visual_keypoints.push(RoadVisualKeypoint { position: i as f32 / 100., x: f32::cos(angle), y: f32::sin(angle) });
         }
         self.segments.push(RoadSegment::new(0, 0, 0, &self.nodes[0], &self.nodes[0], visual_keypoints));
     }
