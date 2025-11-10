@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use crate::{gui, road};
 
-const SPEED: f32 = 1.;
-const OPTIMAL_ACCELERATION: f32 = 0.5;
-const SEEING_DISTANCE: f32 = 3.;
+const SPEED: f32 = 80. / 3.6;
+const OPTIMAL_ACCELERATION: f32 = 0.14 * 9.81; // 0.14g, source : https://www.jsheld.com/insights/articles/a-naturalistic-study-of-vehicle-acceleration-and-deceleration-at-an-intersection
+const SEEING_DISTANCE: f32 = 100.;
 
 pub struct Car {
     position: road::RoadPoint,
@@ -23,8 +23,8 @@ impl Car {
     pub fn new(position: road::RoadPoint) -> Self {
         Self {
             position,
-            speed: SPEED,
-            target_speed: SPEED,
+            speed: 50. / 3.6,
+            target_speed: 50. / 3.6,
             road_information: RoadInformation { current_speed_limit: SPEED, incoming_speed_limits: HashMap::new() }
         }
     }
@@ -55,11 +55,10 @@ impl Car {
                 }
             }
         }
-        self.target_speed = self.road_information.current_speed_limit;
-        // println!("{}", self.road_information.incoming_speed_limits.len());
+        self.target_speed = f32::INFINITY;
         for (speed_limit_position, speed) in self.road_information.incoming_speed_limits.iter() {
             // Update the current speed limit information
-            if roads.get_distance(speed_limit_position, &self.position) < roads.get_distance(&self.position, speed_limit_position) {
+            if roads.get_distance(speed_limit_position, &self.position) <= roads.get_distance(&self.position, speed_limit_position) {
                 self.road_information.current_speed_limit = *speed;
                 self.target_speed = self.target_speed.min(self.road_information.current_speed_limit);
             }
@@ -69,6 +68,7 @@ impl Car {
                 self.target_speed = self.target_speed.min(*speed);
             }
         }
+        self.target_speed = self.target_speed.min(self.road_information.current_speed_limit);
         // Remove speed limits not used anymore
         self.road_information.incoming_speed_limits.retain(|road_point, _speed| { roads.get_distance(&self.position, road_point) < roads.get_distance(road_point, &self.position) });
     }

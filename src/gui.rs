@@ -1,8 +1,8 @@
 use crate::road;
-use macroquad::color::*;
+use macroquad::{color::*, prelude::rand};
 
 const CAR_SIZE: (f32, f32) = (28.8, 14.28);
-const DEFAULT_SCALE: f32 = 200.; // px / meter
+const DEFAULT_SCALE: f32 = 10.; // px / meter
 const ZOOMING_SPEED: f32 = 2.;
 
 pub struct Window {
@@ -54,10 +54,10 @@ impl Window {
             self.x_to_pixel(x) - CAR_SIZE.0 / 2.,
             self.y_to_pixel(y) - CAR_SIZE.1 / 2.,
             WHITE,
-            macroquad::texture::DrawTextureParams { dest_size: Some(macroquad::math::Vec2::new(CAR_SIZE.0, CAR_SIZE.1)), ..Default::default() }
+            macroquad::texture::DrawTextureParams { dest_size: Some(macroquad::math::Vec2::new(CAR_SIZE.0, CAR_SIZE.1)), rotation: rand::rand() as f32, ..Default::default() }
         );
         if speed != -1. {
-            macroquad::text::draw_text(&("Speed = ".to_string() + &speed.to_string()), 5., 100., 30., WHITE);
+            macroquad::text::draw_text(&format!("Speed = {}km/h", speed * 3.6), 5., 100., 30., WHITE);
         }
     }
 

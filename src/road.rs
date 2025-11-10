@@ -1,4 +1,4 @@
-use std::{f32, hash::Hash};
+use std::{f32, hash::Hash, fmt::Display};
 use crate::gui;
 
 struct RoadSegment {
@@ -36,7 +36,7 @@ pub enum SignType {
     EndSpeedLimit,
 }
 
-#[derive(PartialEq, Clone, Copy)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 pub struct RoadPoint {
     road_segment: usize,
     position: f32,
@@ -93,7 +93,7 @@ impl Roads {
         if point_1.position <= point_2.position {
             return point_2.position - point_1.position;
         }
-        return self.segments[point_1.road_segment].length - point_1.position + point_2.position;
+        return self.segments[point_1.road_segment].length - point_1.position + point_2.position + f32::INFINITY;
     }
 
     pub fn render(&self, window: &gui::Window) {
@@ -112,11 +112,11 @@ impl Roads {
     }
 
     fn init_roads(&mut self) {
-        self.nodes.push(RoadNode { x: 1., y: 0. });
+        self.nodes.push(RoadNode { x: 20., y: 0. });
         let mut visual_keypoints: Vec<RoadVisualKeypoint> = Vec::new();
         for i in 1..100 {
             let angle = i as f32 * 2. * f32::consts::PI / 100.;
-            visual_keypoints.push(RoadVisualKeypoint { position: i as f32 / 100., x: f32::cos(angle), y: f32::sin(angle) });
+            visual_keypoints.push(RoadVisualKeypoint { position: i as f32 / 100., x: f32::cos(angle) * 20., y: f32::sin(angle) * 20. });
         }
         self.segments.push(RoadSegment::new(0, 0, 0, &self.nodes[0], &self.nodes[0], visual_keypoints));
     }
@@ -138,9 +138,9 @@ impl RoadSegment {
             from,
             to,
             signs: vec![
-                Sign { sign_type: SignType::SpeedLimit, value: 0.5, position: RoadPoint::new(index, 0.4) },
-                Sign { sign_type: SignType::SpeedLimit, value: 0.1, position: RoadPoint::new(index, 1.4) },
-                Sign { sign_type: SignType::EndSpeedLimit, value: 0., position: RoadPoint::new(index, 1.6) },
+                //Sign { sign_type: SignType::SpeedLimit, value: 50. / 3.6, position: RoadPoint::new(index, 40.) },
+                Sign { sign_type: SignType::SpeedLimit, value: 30. / 3.6, position: RoadPoint::new(index, 85.) },
+                Sign { sign_type: SignType::EndSpeedLimit, value: 0., position: RoadPoint::new(index, 94.) },
             ],
             length,
             visual_keypoints,
@@ -169,3 +169,9 @@ impl Hash for RoadPoint {
 }
 
 impl Eq for RoadPoint {}
+
+impl Display for RoadPoint {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "({}, {})", self.road_segment, self.position)
+    }
+}
