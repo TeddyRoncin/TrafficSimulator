@@ -1,6 +1,7 @@
 mod road;
 mod agent;
 mod gui;
+mod utils;
 
 struct SimulationData {
     roads: road::Roads,
@@ -12,7 +13,7 @@ struct SimulationData {
 async fn main() {
     let mut sd: SimulationData = SimulationData { roads: road::Roads::new(), cars: Vec::new() };
     let mut window = gui::Window::new().await;
-    sd.cars.push(agent::car::Car::new(road::RoadPoint::new(0, 0.)));
+    sd.cars.push(agent::car::Car::new(road::RoadPoint::new(road::RoadSegmentIdx(0), 0.)));
     // for _ in 0..10 {
     //     let road_idx: usize = gen_range(0, sd.roads.segments.len());
     //     let progression: f32 = gen_range(0., 1.);
@@ -22,7 +23,7 @@ async fn main() {
         let step_size = macroquad::prelude::get_frame_time();
         let roads = &sd.roads;
         for car in sd.cars.iter_mut() {
-            car.step(step_size, roads);
+            car.update(step_size, roads);
         }
         macroquad::window::clear_background(macroquad::color::BLACK);
         sd.roads.render(&window);
